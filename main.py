@@ -22,6 +22,7 @@ training_data = np.array(nltk.word_tokenize(training_data))
 training_data = np.reshape(training_data, [-1, ])
 
 n_input = 3  # how many words will be read at a time
+n_layers = 2
 n_hidden = 512  # how many hidden units there will be
 
 def pred_to_word(pred_data, num_to_char):
@@ -73,7 +74,7 @@ def RNN(x, weights, biases):
 
     x = tf.split(x, n_input, 1)
 
-    rnn_cell = tf.contrib.rnn.BasicLSTMCell(n_hidden)
+    rnn_cell = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(n_hidden) for _ in range(n_layers)])
 
     outputs, states = tf.contrib.rnn.static_rnn(rnn_cell, x, dtype=tf.float32)
 
@@ -108,25 +109,52 @@ training_iters = 50000
 acc_total = 0
 loss_total = 0
 with tf.Session() as sess:
+
     sess.run(tf.initialize_all_variables())
     end_offset = n_input + 1
-    for step in range(training_iters):
-        offset = random.randint(0, vocab_size - end_offset)
+    try:
+        for step in range(training_iters):
+            offset = random.randint(0, vocab_size - end_offset)
 
-        symbols_in_keys = [[dictionary[str(training_data[i])] for i in range(offset, offset + n_input)]]
-        human_readable_sik = [reverse_dictionary[word] for word in symbols_in_keys[0]]
-        symbols_out_onehot = np.zeros([1, vocab_size], dtype=float)  # don't worry if pycharm complains
-        symbols_out_onehot[0, dictionary[str(training_data[offset + n_input])]] = 1.0
-        _, acc, loss, onehot_pred = sess.run([optimizer, accuracy, cost, predictor],
-                                             feed_dict={outer_x: symbols_in_keys, outer_y: symbols_out_onehot})
+            symbols_in_keys = [[dictionary[str(training_data[i])] for i in range(offset, offset + n_input)]]
+            human_readable_sik = [reverse_dictionary[word] for word in symbols_in_keys[0]]
+            symbols_out_onehot = np.zeros([1, vocab_size], dtype=float)  # don't worry if pycharm complains
+            symbols_out_onehot[0, dictionary[str(training_data[offset + n_input])]] = 1.0
+            _, acc, loss, onehot_pred = sess.run([optimizer, accuracy, cost, predictor],
+                                                 feed_dict={outer_x: symbols_in_keys, outer_y: symbols_out_onehot})
 
-        loss_total += loss
-        acc_total += acc
+            loss_total += loss
+            acc_total += acc
 
-        if step % 100 == 0:
-            print("Step", step)
-            print("Average Loss:", loss_total / 100)
-            print("Average Accuracy:", acc_total / 100)
-            print("Input: ", human_readable_sik, "Output: ", pred_to_word(onehot_pred, reverse_dictionary), "vs Label:", str(training_data[offset + n_input]))
-            loss_total = 0
-            acc_total = 0
+            if step % 100 == 0:
+                print("Step", step)
+                print("Average Loss:", loss_total / 100)
+                print("Average Accuracy:", acc_total / 100)
+                print("Input: ", human_readable_sik, "Output: ", pred_to_word(onehot_pred, reverse_dictionary)
+                      , "vs Label:", str(training_data[offset + n_input]))
+                loss_total = 0
+                acc_total = 0
+    except EOFError:
+        print("Skipping further iterations")
+    while True:
+        seed = str(input("Type 3 words:"))
+        seed = nltk.word_tokenize(seed.strip())
+        # Correct amount of words?
+        if len(seed) != 3:
+            print("I said 3 words")
+            continue
+        # Good words?
+        for word in seed:
+            if word not in training_data:
+                print("Incorrect words")
+                continue
+
+        symbols_in_keys = [[dictionary[i] for i in seed]]
+        output = seed
+        for j in range(32):
+            pred = sess.run(predictor, feed_dict={outer_x: symbols_in_keys})
+            output.append(pred_to_word(pred, reverse_dictionary))
+            symbols_in_keys = [[dictionary[output[-1]], dictionary[output[-2]], dictionary[output[-3]]]]
+        print(" ".join(output))
+
+
