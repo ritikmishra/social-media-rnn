@@ -30,7 +30,7 @@ compiled_tweets = " ".join(good_words)
 bob_the_rnn = rnn.RecurrentNeuralNetwork(text=compiled_tweets, train_new_model=args.train_again, model_name=args.twitter_account)
 
 
-bob_the_rnn.generate_weights(20000)
+bob_the_rnn.generate_weights(50000)
 
 while True:
     bob_the_rnn.predict()
