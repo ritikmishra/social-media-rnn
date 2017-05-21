@@ -1,6 +1,7 @@
 import random
 
 import tensorflow as tf
+
 import nltk
 import numpy as np
 import collections
@@ -105,9 +106,13 @@ print(reverse_dictionary)
 
 print(dictionary[training_data[3]])
 
+saver.restore(sess, "/tmp/model.ckpt")
+print("Model restored.")
+
 training_iters = 50000
 acc_total = 0
 loss_total = 0
+saver = tf.train.Saver()
 with tf.Session() as sess:
 
     sess.run(tf.initialize_all_variables())
@@ -134,8 +139,12 @@ with tf.Session() as sess:
                       , "vs Label:", str(training_data[offset + n_input]))
                 loss_total = 0
                 acc_total = 0
-    except EOFError:
+    except:
         print("Skipping further iterations")
+    finally:
+        save_path = saver.save(sess, "./saved_model")
+        print("Model saved in file: %s" % save_path)
+
     while True:
         seed = str(input("Type 3 words:"))
         seed = nltk.word_tokenize(seed.strip())
