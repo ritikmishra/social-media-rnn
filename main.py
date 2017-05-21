@@ -22,7 +22,8 @@ parser.add_argument("--text", type=str, metavar="text", nargs="+", help="Some te
                     default=default_training_data)
 parser.add_argument("--train-new-model", action="store_true",
                     help="Include this flag if you want to train a brand new model")
-parser.add_argument("--model-name", help="What is the name of the model that you want to load or save?", default="default")
+parser.add_argument("--model-name", help="What is the name of the model that you want to load or save?", default="model")
+parser.add_argument("--number-of-trainings", help="The number of trainings you will do when training your network", default="50000")
 args = parser.parse_args()
 
 if type(args.text) == list:
@@ -32,6 +33,7 @@ if type(args.text) == list:
 # args.model_name (str)
 # args.text (str)
 # args.train_new_model (bool)
+# args.number_of_trainings (int)
 
 
 vocab_size = None
@@ -125,13 +127,13 @@ print(reverse_dictionary)
 
 print(dictionary[training_data[3]])
 
-training_iters = 50000
+training_iters = int(args.number_of_trainings)
 acc_total = 0
 loss_total = 0
 saver = tf.train.Saver()
 should_save = True
 with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
     end_offset = n_input + 1
     try:
         if args.train_new_model:
