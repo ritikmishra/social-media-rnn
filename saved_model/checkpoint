@@ -1,2 +1,2 @@
-model_checkpoint_path: "rishmishra.ckpt"
-all_model_checkpoint_paths: "rishmishra.ckpt"
+model_checkpoint_path: "dril.ckpt"
+all_model_checkpoint_paths: "dril.ckpt"

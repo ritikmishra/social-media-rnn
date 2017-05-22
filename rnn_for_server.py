@@ -3,6 +3,7 @@ import tensorflow as tf
 import nltk
 import numpy as np
 from os import listdir
+import collections
 
 default_training_data = "long ago , the mice had a general council to consider what measures they could take to " \
                         "outwit their common enemy , the cat . some said this , and some said that but at last a " \
@@ -32,8 +33,6 @@ class RecurrentNeuralNetwork:
         self.vocab_size = None
 
         self.training_data = text
-        self.training_data = np.array(nltk.word_tokenize(self.training_data))
-        self.training_data = np.reshape(self.training_data, [-1, ])
 
         self.n_input = 3  # how many words will be read at a time
         self.n_layers = 2  # layers in our RNN
@@ -98,14 +97,21 @@ class RecurrentNeuralNetwork:
         Generate the dataset out of the words we're training on
         """
         # filter out duplicates
-        unique_tokens = []
 
-        for token in self.training_data:
-            if token not in unique_tokens:
-                unique_tokens.append(token)
-        self.reverse_dictionary = dict(zip(list(range(len(unique_tokens))), unique_tokens))
-        self.dictionary = dict(zip(self.reverse_dictionary.values(), self.reverse_dictionary.keys()))
+        self.training_data = nltk.word_tokenize(self.training_data)
+
+        unique_tokens = collections.Counter(self.training_data).most_common()
+
+        for word, _ in unique_tokens:
+            self.dictionary[word] = len(self.dictionary)
+
+        self.reverse_dictionary = dict(zip(self.dictionary.values(), self.dictionary.keys()))
         self.vocab_size = len(unique_tokens)
+        print("Dictionary")
+        print(self.dictionary) # word to number
+        print("Reverse Dictionary")
+        print(self.reverse_dictionary) # number to word
+
 
     def __rnn(self, x, weights, biases):
         """
@@ -186,14 +192,14 @@ class RecurrentNeuralNetwork:
                           str(self.training_data[offset + self.n_input]))
                     loss_total = 0
                     acc_total = 0
-            else:
-                self.saver.restore(self.sess, "./saved_model/" + self.model_name + ".ckpt")
-                print("Model restored.")
-                self.should_save = False  # since we have loaded what is already saved
+        else:
+            self.saver.restore(self.sess, "./saved_model/" + self.model_name + ".ckpt")
+            print("Model restored.")
+            self.should_save = False  # since we have loaded what is already saved
 
-            if self.should_save:
-                save_path = self.saver.save(self.sess, "./saved_model/" + self.model_name + ".ckpt")
-                print("Model saved in file: %s" % save_path)
+        if self.should_save:
+            save_path = self.saver.save(self.sess, "./saved_model/" + self.model_name + ".ckpt")
+            print("Model saved in file: %s" % save_path)
 
     def predict(self, seed=None):
         if seed is None:
@@ -212,8 +218,7 @@ class RecurrentNeuralNetwork:
             for j in range(32):
                 pred = self.sess.run(self.predictor, feed_dict={self.outer_x: prediction_symbols_in_keys})
                 output.append(self.pred_to_word(pred, self.reverse_dictionary))
-                prediction_symbols_in_keys = [
-                    [self.dictionary[output[-1]], self.dictionary[output[-2]], self.dictionary[output[-3]]]]
+                prediction_symbols_in_keys = [[self.dictionary[output[-3]], self.dictionary[output[-2]], self.dictionary[output[-1]]]]
             print(" ".join(output))
         except KeyError:
             raise KeyError("You have entered words that were not in the source text.")
