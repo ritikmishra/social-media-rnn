@@ -35,8 +35,8 @@ class RecurrentNeuralNetwork:
         self.training_data = text
 
         self.n_input = 3  # how many words will be read at a time
-        self.n_layers = 2  # layers in our RNN
-        self.n_hidden = 512  # how many hidden units there will be
+        self.n_layers = 5  # layers in our RNN
+        self.n_hidden = 1024  # how many hidden units there will be
 
         model_names = self.get_existing_models()
         if model_name not in model_names:
@@ -139,67 +139,73 @@ class RecurrentNeuralNetwork:
         In the event that you 
         """
 
-        self.outer_x = tf.placeholder("float", [None, self.n_input])  # placeholder for a 1d array that is n_input wide
-        self.outer_y = tf.placeholder("float", [None, self.vocab_size])  # placeholder fr a 1d array that is vocab size wide
+        try:
 
-        # RNN output node weights and biases
-        self.weights = {
-            'out': tf.Variable(tf.random_normal([int(self.n_hidden), int(self.vocab_size)]))
-        }
-        self.biases = {
-            'out': tf.Variable(tf.random_normal([self.vocab_size]))
-        }
+            self.outer_x = tf.placeholder("float", [None, self.n_input])  # placeholder for a 1d array that is n_input wide
+            self.outer_y = tf.placeholder("float", [None, self.vocab_size])  # placeholder fr a 1d array that is vocab size wide
 
-        if(self.generate_weights_calls == 0):
-            self.predictor = self.__rnn(self.outer_x, self.weights, self.biases)
-            cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.predictor, labels=self.outer_y))
-            optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001).minimize(cost)
+            # RNN output node weights and biases
+            self.weights = {
+                'out': tf.Variable(tf.random_normal([int(self.n_hidden), int(self.vocab_size)]))
+            }
+            self.biases = {
+                'out': tf.Variable(tf.random_normal([self.vocab_size]))
+            }
 
-        self.saver = tf.train.Saver()
+            if(self.generate_weights_calls == 0):
+                self.predictor = self.__rnn(self.outer_x, self.weights, self.biases)
+                cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=self.predictor, labels=self.outer_y))
+                optimizer = tf.train.RMSPropOptimizer(learning_rate=0.001).minimize(cost)
 
-        correct_pred = tf.equal(tf.argmax(self.predictor, 1), tf.argmax(self.outer_y, 1))
-        accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+            self.saver = tf.train.Saver()
 
-        loss_total = 0
-        acc_total = 0
-        self.sess = tf.Session()
-        self.sess.run(tf.global_variables_initializer())
-        end_offset = self.n_input + 1
+            correct_pred = tf.equal(tf.argmax(self.predictor, 1), tf.argmax(self.outer_y, 1))
+            accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
-        if self.train_new_model:
-            for step in range(training_iters):
-                offset = random.randint(0, self.vocab_size - end_offset)
+            loss_total = 0
+            acc_total = 0
+            self.sess = tf.Session()
+            self.sess.run(tf.global_variables_initializer())
+            end_offset = self.n_input + 1
 
-                training_symbols_in_keys = [
-                    [self.dictionary[str(self.training_data[i])] for i in range(offset, offset + self.n_input)]]
-                human_readable_sik = [self.reverse_dictionary[word] for word in training_symbols_in_keys[0]]
-                symbols_out_onehot = np.zeros([1, self.vocab_size],
-                                              dtype=float)  # don't worry if pycharm complains
-                symbols_out_onehot[0, self.dictionary[str(self.training_data[offset + self.n_input])]] = 1.0
-                _, acc, loss, onehot_pred = self.sess.run([optimizer, accuracy, cost, self.predictor],
-                                                     feed_dict={self.outer_x: training_symbols_in_keys,
-                                                                self.outer_y: symbols_out_onehot})
+            if self.train_new_model:
+                for step in range(training_iters):
+                    offset = random.randint(0, self.vocab_size - end_offset)
 
-                loss_total += loss
-                acc_total += acc
+                    training_symbols_in_keys = [
+                        [self.dictionary[str(self.training_data[i])] for i in range(offset, offset + self.n_input)]]
+                    human_readable_sik = [self.reverse_dictionary[word] for word in training_symbols_in_keys[0]]
+                    symbols_out_onehot = np.zeros([1, self.vocab_size],
+                                                  dtype=float)  # don't worry if pycharm complains
+                    symbols_out_onehot[0, self.dictionary[str(self.training_data[offset + self.n_input])]] = 1.0
+                    _, acc, loss, onehot_pred = self.sess.run([optimizer, accuracy, cost, self.predictor],
+                                                         feed_dict={self.outer_x: training_symbols_in_keys,
+                                                                    self.outer_y: symbols_out_onehot})
 
-                if step % 100 == 0:
-                    print("Step", step)
-                    print("Average Loss:", loss_total / 100)
-                    print("Average Accuracy:", acc_total / 100)
-                    print("Input: ", human_readable_sik, "Output: ",
-                          self.pred_to_word(onehot_pred, self.reverse_dictionary), "vs Label:",
-                          str(self.training_data[offset + self.n_input]))
-                    loss_total = 0
-                    acc_total = 0
-        else:
-            self.saver.restore(self.sess, "./saved_model/" + self.model_name + ".ckpt")
-            print("Model restored.")
-            self.should_save = False  # since we have loaded what is already saved
+                    loss_total += loss
+                    acc_total += acc
 
-        if self.should_save:
+                    if step % 100 == 0:
+                        print("Step", step)
+                        print("Average Loss:", loss_total / 100)
+                        print("Average Accuracy:", acc_total / 100)
+                        print("Input: ", human_readable_sik, "Output: ",
+                              self.pred_to_word(onehot_pred, self.reverse_dictionary), "vs Label:",
+                              str(self.training_data[offset + self.n_input]))
+                        loss_total = 0
+                        acc_total = 0
+            else:
+                self.saver.restore(self.sess, "./saved_model/" + self.model_name + ".ckpt")
+                print("Model restored.")
+                self.should_save = False  # since we have loaded what is already saved
+
+            if self.should_save:
+                save_path = self.saver.save(self.sess, "./saved_model/" + self.model_name + ".ckpt")
+                print("Model saved in file: %s" % save_path)
+        except KeyboardInterrupt, EOFError:
+            print("Iter", training_iters)
+            print("Saving. . .")
             save_path = self.saver.save(self.sess, "./saved_model/" + self.model_name + ".ckpt")
-            print("Model saved in file: %s" % save_path)
 
     def predict(self, seed=None):
         if seed is None:
@@ -219,6 +225,7 @@ class RecurrentNeuralNetwork:
                 pred = self.sess.run(self.predictor, feed_dict={self.outer_x: prediction_symbols_in_keys})
                 output.append(self.pred_to_word(pred, self.reverse_dictionary))
                 prediction_symbols_in_keys = [[self.dictionary[output[-3]], self.dictionary[output[-2]], self.dictionary[output[-1]]]]
+                print(prediction_symbols_in_keys)
             print(" ".join(output))
         except KeyError:
             raise KeyError("You have entered words that were not in the source text.")
